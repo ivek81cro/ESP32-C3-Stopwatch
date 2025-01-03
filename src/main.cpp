@@ -51,11 +51,14 @@ void onReceive(const uint8_t *mac, const uint8_t *incomingData, int len) {
   if (timerRunning) {
         // Ignore incoming data while blocking
         Serial.println("Receive blocked");
+        sendData.seconds = 5;
+        esp_now_send(receiverMAC, (uint8_t *)&sendData, sizeof(sendData));
+        sendData.seconds = 0;
         return;
     }
 
     memcpy(&receivedData, incomingData, sizeof(receivedData));
-    Serial.print("Received from Device B: ");
+    Serial.print("\nReceived from Device B: ");
     Serial.printf("%d \n", receivedData.elapsedTime);
     displayTime(receivedData.elapsedTime);
 }
