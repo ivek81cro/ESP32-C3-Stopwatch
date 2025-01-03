@@ -61,6 +61,10 @@ void onReceive(const uint8_t *mac, const uint8_t *incomingData, int len) {
     Serial.print("\nReceived from Device B: ");
     Serial.printf("%d \n", receivedData.elapsedTime);
     displayTime(receivedData.elapsedTime);
+    if(receivedData.seconds == 6){
+      triggerArmed = true;
+      Serial.printf("Recieved message: %d", receivedData.seconds);
+    }
 }
 
 void onSent(const uint8_t *macAddr, esp_now_send_status_t status) {
@@ -123,12 +127,13 @@ void loop() {
       timerRunning = false;
       displayTime(elapsedTime);
       triggerArmed = false;
-      Serial.printf("Elapsed time %d",elapsedTime);
+      Serial.printf("Elapsed time %d\n",elapsedTime);
 
       sendData.elapsedTime = elapsedTime;
       delay(3000);
       // Send data
       esp_now_send(receiverMAC, (uint8_t *)&sendData, sizeof(sendData));
+      triggerArmed = false;
       delay(3000);
     }
     //Stopwatch running with posibility to stop
@@ -138,7 +143,7 @@ void loop() {
     }
   }
   //Arming laser sensor timer 
-  else if (millis() - lastDisarmTime >= DISARM_TIME) {
+  else if (millis() - lastDisarmTime >= DISARM_TIME && timerRunning) {
     triggerArmed = true;  // Re-arm trigger after disarm time
   }
   //Stopwatch running without posibility to stop 
