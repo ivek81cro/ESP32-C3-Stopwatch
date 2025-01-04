@@ -15,7 +15,7 @@ CRGB leds[NUM_LEDS];
 DataPacket sendData = {};
 DataPacket receivedData = {};
 uint8_t receiverMAC[] = {0x7C, 0x2C, 0x67, 0xD3, 0x0E, 0x60};
-bool triggerArmed = true;
+bool triggerArmed = false;
 bool timerRunning = false;
 unsigned long startTime = 0;
 unsigned long elapsedTime = 0;
@@ -29,7 +29,7 @@ void setup() {
     FastLED.clear();
     pinMode(LASER_PIN, INPUT_PULLUP);
 
-    Serial.println("Stopwatch initialized");
+    DEBUG_PRINTLN("Stopwatch initialized");
 
     // Initialize WiFi and ESP-NOW
     WiFi.mode(WIFI_STA);
@@ -38,14 +38,11 @@ void setup() {
 
 void loop() {
     handleLaserTrigger();
-    if (!triggerArmed && timerRunning) {
-        updateTimeDisplay(millis() - startTime);
-    }
 }
 
 void initializeESPNow() {
     if (esp_now_init() != ESP_OK) {
-        Serial.println("ESP-NOW initialization failed!");
+        DEBUG_PRINTLN("ESP-NOW initialization failed!");
         return;
     }
 
@@ -58,7 +55,7 @@ void initializeESPNow() {
     peerInfo.encrypt = false;
 
     if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-        Serial.println("Failed to add ESP-NOW peer");
+        DEBUG_PRINTLN("Failed to add ESP-NOW peer");
     }
 }
 
@@ -75,18 +72,21 @@ void handleLaserTrigger() {
             } else {  // Stop stopwatch
                 elapsedTime = millis() - startTime;
                 timerRunning = false;
+                triggerArmed = false;
                 updateTimeDisplay(elapsedTime);
-                Serial.printf("Elapsed time: %d ms\n", elapsedTime);
+                DEBUG_PRINTF("Elapsed time: %d ms\n", elapsedTime);
 
                 // Send elapsed time
                 sendData.elapsedTime = elapsedTime;
                 esp_now_send(receiverMAC, (uint8_t *)&sendData, sizeof(sendData));
             }
-        } else if (timerRunning) {
-            updateTimeDisplay(millis() - startTime);
         }
-    } else if (!timerRunning && millis() - lastDisarmTime >= DISARM_TIME) {
+    }
+    if (!triggerArmed && timerRunning && millis() - lastDisarmTime >= DISARM_TIME) {
         triggerArmed = true;
+    }
+    if (timerRunning) {
+        updateTimeDisplay(millis() - startTime);
     }
 }
 
@@ -102,7 +102,7 @@ void updateTimeDisplay(unsigned long time) {
     clearAndLightDigit(4, centiseconds / 10);
     clearAndLightDigit(5, centiseconds % 10);
 
-    Serial.printf("%02d:%02d:%02d\n", minutes, seconds, centiseconds);
+    DEBUG_PRINTF("%02d:%02d:%02d\n", minutes, seconds, centiseconds);
 }
 
 void clearAndLightDigit(int digit, int number) {
@@ -134,24 +134,37 @@ void clearAndLightDigit(int digit, int number) {
 }
 
 void onReceive(const uint8_t *mac, const uint8_t *incomingData, int len) {
-    if (timerRunning) {
-        Serial.println("Receive blocked");
+    if (timerRunning) 
+    {
+        DEBUG_PRINTLN("Receive blocked");
         sendData.seconds = 5;
         esp_now_send(receiverMAC, (uint8_t *)&sendData, sizeof(sendData));
         sendData.seconds = 0;
-        return;
     }
+    else
+    {
+        memcpy(&receivedData, incomingData, sizeof(receivedData));
+        DEBUG_PRINTF("Received: %d ms\n", receivedData.elapsedTime);
+        updateTimeDisplay(receivedData.elapsedTime);
 
-    memcpy(&receivedData, incomingData, sizeof(receivedData));
-    Serial.printf("Received: %d ms\n", receivedData.elapsedTime);
-    updateTimeDisplay(receivedData.elapsedTime);
-
-    if (receivedData.seconds == 6) {
-        triggerArmed = true;
-        Serial.println("Trigger re-armed");
+        manageTrigger();
     }
 }
 
 void onSent(const uint8_t *macAddr, esp_now_send_status_t status) {
-    Serial.printf("Delivery Status: %s\n", status == ESP_NOW_SEND_SUCCESS ? "Success" : "Fail");
+    DEBUG_PRINTF("Delivery Status: %s\n", status == ESP_NOW_SEND_SUCCESS ? "Success" : "Fail");
+}
+
+void manageTrigger()
+{
+    if (receivedData.seconds == 6) 
+    {
+        triggerArmed = true;
+        DEBUG_PRINTLN("Trigger armed");
+    }
+    else
+    {
+        triggerArmed = false;
+        DEBUG_PRINTLN("Trigger disarmed");
+    }
 }

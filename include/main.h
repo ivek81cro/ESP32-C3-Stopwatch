@@ -6,6 +6,18 @@
 #include <esp_now.h>
 #include <WiFi.h>
 
+// Debugging macros
+#define DEBUG
+#ifdef DEBUG
+#define DEBUG_PRINT(x) Serial.print(x)
+#define DEBUG_PRINTLN(x) Serial.println(x)
+#define DEBUG_PRINTF(...) Serial.printf(__VA_ARGS__)
+#else
+#define DEBUG_PRINT(x)
+#define DEBUG_PRINTLN(x)
+#define DEBUG_PRINTF(...)
+#endif
+
 // Constants
 #define NUM_LEDS 336
 #define DATA_PIN 21
@@ -37,5 +49,6 @@ void updateTimeDisplay(unsigned long time);
 void clearAndLightDigit(int digit, int number);
 void onReceive(const uint8_t *mac, const uint8_t *incomingData, int len);
 void onSent(const uint8_t *macAddr, esp_now_send_status_t status);
+void manageTrigger();
 
 #endif
