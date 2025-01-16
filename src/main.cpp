@@ -25,7 +25,7 @@ void setup() {
     // Initialize Serial, FastLED, and pins
     Serial.begin(115200);
     FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
-    FastLED.setBrightness(128);
+    FastLED.setBrightness(255);
     FastLED.clear();
     pinMode(LASER_PIN, INPUT_PULLUP);
 
@@ -90,22 +90,22 @@ void handleLaserTrigger() {
     }
 }
 
-void updateTimeDisplay(unsigned long time) {
+void updateTimeDisplay(unsigned long time, int code = 0) {
     uint8_t minutes = (time / 60000) % 60;
     uint8_t seconds = (time / 1000) % 60;
     uint8_t centiseconds = (time % 1000) / 10;
 
-    clearAndLightDigit(0, minutes / 10);
-    clearAndLightDigit(1, minutes % 10);
-    clearAndLightDigit(2, seconds / 10);
-    clearAndLightDigit(3, seconds % 10);
-    clearAndLightDigit(4, centiseconds / 10);
-    clearAndLightDigit(5, centiseconds % 10);
+    clearAndLightDigit(0, minutes / 10, code);
+    clearAndLightDigit(1, minutes % 10, code);
+    clearAndLightDigit(2, seconds / 10, code);
+    clearAndLightDigit(3, seconds % 10, code);
+    clearAndLightDigit(4, centiseconds / 10, code);
+    clearAndLightDigit(5, centiseconds % 10, code);
 
     DEBUG_PRINTF("%02d:%02d:%02d\n", minutes, seconds, centiseconds);
 }
 
-void clearAndLightDigit(int digit, int number) {
+void clearAndLightDigit(int digit, int number, int code = 0) {
     const char *segmentPatterns[] = {
         "abcefg", "cg", "abdfg", "bcdfg", "cdeg", 
         "bcdef", "abcdef", "cfg", "abcdefg", "bcdefg"
@@ -124,7 +124,7 @@ void clearAndLightDigit(int digit, int number) {
             int segmentIndex = *segments - 'a';
             int startIndex = digitSegments[digit][segmentIndex];
             for (int j = 0; j < SEGMENT_LENGTH; j++) {
-                leds[startIndex + j] = CRGB::Green;
+                leds[startIndex + j] = code==5? CRGB::Red:CRGB::Green;
             }
             segments++;
         }
@@ -145,7 +145,7 @@ void onReceive(const uint8_t *mac, const uint8_t *incomingData, int len) {
     {
         memcpy(&receivedData, incomingData, sizeof(receivedData));
         DEBUG_PRINTF("Received: %d ms\n", receivedData.elapsedTime);
-        updateTimeDisplay(receivedData.elapsedTime);
+        updateTimeDisplay(receivedData.elapsedTime, receivedData.seconds);
 
         manageTrigger();
     }
