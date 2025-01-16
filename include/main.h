@@ -45,8 +45,8 @@ extern unsigned long lastDisarmTime;
 // Function Prototypes
 void initializeESPNow();
 void handleLaserTrigger();
-void updateTimeDisplay(unsigned long time, int seconds);
-void clearAndLightDigit(int digit, int number, int code);
+void updateTimeDisplay(unsigned long time, int code = 0);
+void clearAndLightDigit(int digit, int number, int code = 0);
 void onReceive(const uint8_t *mac, const uint8_t *incomingData, int len);
 void onSent(const uint8_t *macAddr, esp_now_send_status_t status);
 void manageTrigger();

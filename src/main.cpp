@@ -90,7 +90,7 @@ void handleLaserTrigger() {
     }
 }
 
-void updateTimeDisplay(unsigned long time, int code = 0) {
+void updateTimeDisplay(unsigned long time, int code) {
     uint8_t minutes = (time / 60000) % 60;
     uint8_t seconds = (time / 1000) % 60;
     uint8_t centiseconds = (time % 1000) / 10;
@@ -105,7 +105,7 @@ void updateTimeDisplay(unsigned long time, int code = 0) {
     DEBUG_PRINTF("%02d:%02d:%02d\n", minutes, seconds, centiseconds);
 }
 
-void clearAndLightDigit(int digit, int number, int code = 0) {
+void clearAndLightDigit(int digit, int number, int code) {
     const char *segmentPatterns[] = {
         "abcefg", "cg", "abdfg", "bcdfg", "cdeg", 
         "bcdef", "abcdef", "cfg", "abcdefg", "bcdefg"
@@ -124,7 +124,7 @@ void clearAndLightDigit(int digit, int number, int code = 0) {
             int segmentIndex = *segments - 'a';
             int startIndex = digitSegments[digit][segmentIndex];
             for (int j = 0; j < SEGMENT_LENGTH; j++) {
-                leds[startIndex + j] = code==5? CRGB::Red:CRGB::Green;
+                leds[startIndex + j] = code==5? CRGB::Green:CRGB::Red;
             }
             segments++;
         }
