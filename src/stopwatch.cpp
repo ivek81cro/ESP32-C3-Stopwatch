@@ -141,13 +141,13 @@ void Stopwatch::onReceive(const uint8_t *mac, const uint8_t *incomingData, int l
     Stopwatch& instance = Stopwatch::getInstance();
     if (instance.timerRunning) {
         DEBUG_PRINTLN("Receive blocked");
-        instance.sendData.seconds = 5;
+        instance.sendData.code = 5;//code for message recieve blocked
         esp_now_send(instance.receiverMAC, (uint8_t *)&instance.sendData, sizeof(instance.sendData));
-        instance.sendData.seconds = 0;
+        instance.sendData.code = 0;
     } else {
         memcpy(&instance.receivedData, incomingData, sizeof(instance.receivedData));
         DEBUG_PRINTF("Received: %d ms\n", instance.receivedData.elapsedTime);
-        instance.updateTimeDisplay(instance.receivedData.elapsedTime, instance.receivedData.seconds);
+        instance.updateTimeDisplay(instance.receivedData.elapsedTime, instance.receivedData.code);
         instance.manageTrigger();
     }
 }
@@ -157,7 +157,7 @@ void Stopwatch::onSent(const uint8_t *macAddr, esp_now_send_status_t status) {
 }
 
 void Stopwatch::manageTrigger() {
-    if (receivedData.seconds == 6) {
+    if (receivedData.code == 6) {
         triggerArmed = true;
         DEBUG_PRINTLN("Trigger armed");
     } else {

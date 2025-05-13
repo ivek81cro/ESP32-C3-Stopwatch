@@ -27,8 +27,8 @@
 
 // Data Structures
 struct DataPacket {
-    uint8_t seconds;
-    int elapsedTime;
+    uint8_t code; //code for messages between MCU's
+    int elapsedTime; //elapsed time in milliseconds
 };
 
 class Stopwatch {
