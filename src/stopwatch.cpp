@@ -17,9 +17,10 @@ DataPacket Stopwatch::receivedData = {};
 uint8_t Stopwatch::receiverMAC[] = {0x7C, 0x2C, 0x67, 0xD3, 0x0E, 0x60};//{0xe4, 0xb3, 0x23, 0xc2, 0x80, 0x68}
 bool Stopwatch::triggerArmed = false;
 bool Stopwatch::timerRunning = false;
-unsigned long Stopwatch::startTime = 0;
-unsigned long Stopwatch::elapsedTime = 0;
+//unsigned long Stopwatch::startTime = 0;
+//unsigned long Stopwatch::elapsedTime = 0;
 unsigned long Stopwatch::lastDisarmTime = 0;
+//unsigned long Stopwatch::stopTime = 0;
 
 void Stopwatch::setup() {
     // Initialize Serial, FastLED, and pins
@@ -69,20 +70,25 @@ void Stopwatch::handleLaserTrigger() {
     if (triggerArmed) {
         if (laserTripped) {
             if (!timerRunning) {  // Start stopwatch
-                startTime = millis();
+                sendData.startTime = millis();
                 timerRunning = true;
-                lastDisarmTime = startTime;
+                lastDisarmTime = sendData.startTime;
                 triggerArmed = false;
+                sendData.code = 9; // code for stopwatch started
+                DEBUG_PRINTF("Stopwatch started, startTime: %lu\n", sendData.startTime);
+                Stopwatch::getInstance().sendDataToStopwatch();
             } else {  // Stop stopwatch
-                elapsedTime = millis() - startTime;
+                sendData.stopTime = millis();
+                sendData.elapsedTime = millis() - sendData.startTime;
+                sendData.code = 8; // code for stopwatch stopped
                 timerRunning = false;
                 triggerArmed = false;
-                updateTimeDisplay(elapsedTime);
-                DEBUG_PRINTF("Elapsed time: %d ms\n", elapsedTime);
+                updateTimeDisplay(sendData.elapsedTime);
+                DEBUG_PRINTF("Stop timestamp: %d ms\n Elapsed time: %d ms\n",
+                    sendData.stopTime, sendData.elapsedTime);
 
                 // Send elapsed time
-                sendData.elapsedTime = elapsedTime;
-                esp_now_send(receiverMAC, (uint8_t *)&sendData, sizeof(sendData));
+                Stopwatch::getInstance().sendDataToStopwatch();
             }
         }
     }
@@ -90,8 +96,15 @@ void Stopwatch::handleLaserTrigger() {
         triggerArmed = true;
     }
     if (timerRunning) {
-        updateTimeDisplay(millis() - startTime);
+        updateTimeDisplay(millis() - sendData.startTime);
     }
+}
+
+void Stopwatch::sendDataToStopwatch()
+{
+    esp_err_t result = esp_now_send(receiverMAC, (uint8_t *)&sendData, sizeof(sendData));
+    DEBUG_PRINTLN("Sending data result...:");
+    DEBUG_PRINTLN(result);
 }
 
 void Stopwatch::updateTimeDisplay(unsigned long time, int code) {
@@ -154,6 +167,9 @@ void Stopwatch::onReceive(const uint8_t *mac, const uint8_t *incomingData, int l
 
 void Stopwatch::onSent(const uint8_t *macAddr, esp_now_send_status_t status) {
     DEBUG_PRINTF("Delivery Status: %s\n", status == ESP_NOW_SEND_SUCCESS ? "Success" : "Fail");
+    if (status != ESP_NOW_SEND_SUCCESS) {
+        Stopwatch::getInstance().sendDataToStopwatch();
+    }
 }
 
 void Stopwatch::manageTrigger() {

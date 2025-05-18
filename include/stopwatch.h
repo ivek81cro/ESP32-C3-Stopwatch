@@ -26,8 +26,15 @@
 #define SEGMENT_LENGTH 8
 
 // Data Structures
+/*Codes:    5 = recieve blocked, stopwatch running
+            9 = stopwatch started, start timestamp
+            8 = stopwatch stopped, stop timestamp
+            6 = trigger reset
+*/
 struct DataPacket {
     uint8_t code; //code for messages between MCU's
+    int stopTime; //elapsed time in milliseconds
+    int startTime; //start timestamp
     int elapsedTime; //elapsed time in milliseconds
 };
 
@@ -50,8 +57,9 @@ private:
     static uint8_t receiverMAC[];
     static bool triggerArmed;
     static bool timerRunning;
-    static unsigned long startTime;
-    static unsigned long elapsedTime;
+    //static unsigned long stopTime;
+    //static unsigned long startTime;
+    //static unsigned long elapsedTime;
     static unsigned long lastDisarmTime;
 
     Stopwatch() {} // Private constructor for singleton pattern
@@ -60,6 +68,7 @@ private:
 
     void initializeESPNow();
     void handleLaserTrigger();
+    void sendDataToStopwatch();
     void updateTimeDisplay(unsigned long time, int code = 0);
     void clearAndLightDigit(int digit, int number, int code = 0);
     static void onReceive(const uint8_t *mac, const uint8_t *incomingData, int len);
