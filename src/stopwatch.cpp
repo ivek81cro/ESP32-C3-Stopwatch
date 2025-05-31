@@ -14,7 +14,10 @@ const int Stopwatch::digitSegments[6][7] = {
 CRGB Stopwatch::leds[NUM_LEDS];
 DataPacket Stopwatch::sendData = {};
 DataPacket Stopwatch::receivedData = {};
-uint8_t Stopwatch::receiverMAC[] = {0x7C, 0x2C, 0x67, 0xD3, 0x0E, 0x60};//{0xe4, 0xb3, 0x23, 0xc2, 0x80, 0x68}
+//{0xe4, 0xb3, 0x23, 0xc2, 0x80, 0x68}
+//{0x7C, 0x2C, 0x67, 0xD3, 0x0E, 0x60}
+//{0xA0, 0x85, 0xE3, 0x4E, 0x56, 0x20}
+uint8_t Stopwatch::receiverMAC[] = {0x7C, 0x2C, 0x67, 0xD3, 0x0E, 0x60};
 bool Stopwatch::triggerArmed = false;
 bool Stopwatch::timerRunning = false;
 //unsigned long Stopwatch::startTime = 0;
@@ -34,6 +37,7 @@ void Stopwatch::setup() {
 
     // Initialize WiFi and ESP-NOW
     WiFi.mode(WIFI_STA);
+    DEBUG_PRINTLN("STA MAC Address: " + WiFi.macAddress());
     initializeESPNow();
 }
 
