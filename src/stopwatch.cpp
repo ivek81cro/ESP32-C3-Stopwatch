@@ -14,10 +14,10 @@ const int Stopwatch::digitSegments[6][7] = {
 CRGB Stopwatch::leds[NUM_LEDS];
 DataPacket Stopwatch::sendData = {};
 DataPacket Stopwatch::receivedData = {};
-//{0xe4, 0xb3, 0x23, 0xc2, 0x80, 0x68}
+//{0x10, 0x00, 0x3B, 0x00, 0x4E, 0xE4}
 //{0x7C, 0x2C, 0x67, 0xD3, 0x0E, 0x60}
 //{0xA0, 0x85, 0xE3, 0x4E, 0x56, 0x20}
-uint8_t Stopwatch::receiverMAC[] = {0x7C, 0x2C, 0x67, 0xD3, 0x0E, 0x60};
+uint8_t Stopwatch::receiverMAC[] = {0x10, 0x00, 0x3B, 0x00, 0x4E, 0xE4};
 bool Stopwatch::triggerArmed = false;
 bool Stopwatch::timerRunning = false;
 //unsigned long Stopwatch::startTime = 0;
@@ -37,6 +37,7 @@ void Stopwatch::setup() {
 
     // Initialize WiFi and ESP-NOW
     WiFi.mode(WIFI_STA);
+    delay(5000);
     DEBUG_PRINTLN("STA MAC Address: " + WiFi.macAddress());
     initializeESPNow();
 }
@@ -163,8 +164,9 @@ void Stopwatch::onReceive(const uint8_t *mac, const uint8_t *incomingData, int l
         instance.sendData.code = 0;
     } else {
         memcpy(&instance.receivedData, incomingData, sizeof(instance.receivedData));
-        DEBUG_PRINTF("Received: %d ms\n", instance.receivedData.elapsedTime);
+        DEBUG_PRINTF("Received: %d ms\n Code: %d\n", instance.receivedData.elapsedTime, instance.receivedData.code);
         instance.updateTimeDisplay(instance.receivedData.elapsedTime, instance.receivedData.code);
+        DEBUG_PRINTLN(instance.receivedData.code);
         instance.manageTrigger();
     }
 }
@@ -177,7 +179,7 @@ void Stopwatch::onSent(const uint8_t *macAddr, esp_now_send_status_t status) {
 }
 
 void Stopwatch::manageTrigger() {
-    if (receivedData.code == 6) {
+    if (receivedData.code == 3) { // code for arm trigger
         triggerArmed = true;
         DEBUG_PRINTLN("Trigger armed");
     } else {
