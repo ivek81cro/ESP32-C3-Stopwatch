@@ -32,6 +32,7 @@
             6 = trigger reset
 */
 struct DataPacket {
+    uint8_t id; //Stopwatch Id
     uint8_t code; //code for messages between MCU's
     int stopTime; //elapsed time in milliseconds
     int startTime; //start timestamp

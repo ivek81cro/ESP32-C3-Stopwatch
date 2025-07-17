@@ -17,7 +17,7 @@ DataPacket Stopwatch::receivedData = {};
 //{0x10, 0x00, 0x3B, 0x00, 0x4E, 0xE4}
 //{0x7C, 0x2C, 0x67, 0xD3, 0x0E, 0x60}
 //{0xA0, 0x85, 0xE3, 0x4E, 0x56, 0x20}
-uint8_t Stopwatch::receiverMAC[] = {0x10, 0x00, 0x3B, 0x00, 0x4E, 0xE4};
+uint8_t Stopwatch::receiverMAC[] = {0x7C, 0x2C, 0x67, 0xD3, 0x0E, 0x60};
 bool Stopwatch::triggerArmed = false;
 bool Stopwatch::timerRunning = false;
 //unsigned long Stopwatch::startTime = 0;
@@ -98,7 +98,7 @@ void Stopwatch::handleLaserTrigger() {
         }
     }
     if (!triggerArmed && timerRunning && millis() - lastDisarmTime >= DISARM_TIME) {
-        triggerArmed = true;
+        //triggerArmed = true;
     }
     if (timerRunning) {
         updateTimeDisplay(millis() - sendData.startTime);
@@ -151,13 +151,13 @@ void Stopwatch::clearAndLightDigit(int digit, int number, int code) {
             segments++;
         }
     }
-
-    FastLED.show();
+    FastLED.show(); 
 }
 
 void Stopwatch::onReceive(const uint8_t *mac, const uint8_t *incomingData, int len) {
     Stopwatch& instance = Stopwatch::getInstance();
-    if (instance.timerRunning) {
+    const DataPacket* packet = reinterpret_cast<const DataPacket*>(incomingData);
+    if (instance.timerRunning && packet->code != 10) {
         DEBUG_PRINTLN("Receive blocked");
         instance.sendData.code = 5;//code for message recieve blocked
         esp_now_send(instance.receiverMAC, (uint8_t *)&instance.sendData, sizeof(instance.sendData));
@@ -182,6 +182,10 @@ void Stopwatch::manageTrigger() {
     if (receivedData.code == 3) { // code for arm trigger
         triggerArmed = true;
         DEBUG_PRINTLN("Trigger armed");
+    }
+    else if (receivedData.code == 10 ){
+        triggerArmed = !triggerArmed;
+        DEBUG_PRINTF("Trigger toggled: %s\n", triggerArmed ? "armed" : "disarmed");
     } else {
         triggerArmed = false;
         DEBUG_PRINTLN("Trigger disarmed");
