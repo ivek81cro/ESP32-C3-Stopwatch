@@ -185,6 +185,8 @@ void Stopwatch::manageTrigger() {
     }
     else if (receivedData.code == 10 ){
         triggerArmed = !triggerArmed;
+        sendData.code = triggerArmed ? 20 : 21; //code for arm/disarm
+        sendDataToStopwatch();
         DEBUG_PRINTF("Trigger toggled: %s\n", triggerArmed ? "armed" : "disarmed");
     } else {
         triggerArmed = false;
