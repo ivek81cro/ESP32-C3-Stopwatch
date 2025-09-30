@@ -1,43 +1,30 @@
 #include "stopwatch.h"
 
-// LED Segment Mapping for 7-Segment Displays
-const int Stopwatch::digitSegments[6][7] = {
-    {0, 8, 16, 24, 32, 40, 48}, 
-    {56, 64, 72, 80, 88, 96, 104},
-    {112, 120, 128, 136, 144, 152, 160},
-    {168, 176, 184, 192, 200, 208, 216},
-    {224, 232, 240, 248, 256, 264, 272},
-    {280, 288, 296, 304, 312, 320, 328}
-};
-
 // Global Variables
-CRGB Stopwatch::leds[NUM_LEDS];
+SimpleLEDMatrix* Stopwatch::matrix = nullptr;
 DataPacket Stopwatch::sendData = {};
 DataPacket Stopwatch::receivedData = {};
-//{0x10, 0x00, 0x3B, 0x00, 0x4E, 0xE4}
-//{0x7C, 0x2C, 0x67, 0xD3, 0x0E, 0x60}
-//{0xA0, 0x85, 0xE3, 0x4E, 0x56, 0x20}
 uint8_t Stopwatch::receiverMAC[] = {0x7C, 0x2C, 0x67, 0xD3, 0x0E, 0x60};
 bool Stopwatch::triggerArmed = false;
 bool Stopwatch::timerRunning = false;
-//unsigned long Stopwatch::startTime = 0;
-//unsigned long Stopwatch::elapsedTime = 0;
-unsigned long Stopwatch::lastDisarmTime = 0;
-//unsigned long Stopwatch::stopTime = 0;
+unsigned long Stopwatch::lastDisplayUpdate = 0;
 
 void Stopwatch::setup() {
-    // Initialize Serial, FastLED, and pins
+    // Initialize Serial and pins
     Serial.begin(115200);
-    FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
-    FastLED.setBrightness(255);
-    FastLED.clear();
     pinMode(LASER_PIN, INPUT_PULLUP);
 
+    // Initialize LED Matrix
+    matrix = new SimpleLEDMatrix(DATA_PIN, MATRIX_WIDTH, MATRIX_HEIGHT, LED_BRIGHTNESS);
+    matrix->begin();
+    
+    // Show initial time display
+    updateTimeDisplay(0);
     DEBUG_PRINTLN("Stopwatch initialized");
 
     // Initialize WiFi and ESP-NOW
     WiFi.mode(WIFI_STA);
-    delay(5000);
+    delay(2000); // Reduced delay
     DEBUG_PRINTLN("STA MAC Address: " + WiFi.macAddress());
     initializeESPNow();
 }
@@ -67,6 +54,10 @@ void Stopwatch::initializeESPNow() {
 
 Stopwatch::~Stopwatch() {
     esp_now_deinit();
+    if (matrix) {
+        delete matrix;
+        matrix = nullptr;
+    }
 }
 
 void Stopwatch::handleLaserTrigger() {
@@ -77,15 +68,14 @@ void Stopwatch::handleLaserTrigger() {
             if (!timerRunning) {  // Start stopwatch
                 sendData.startTime = millis();
                 timerRunning = true;
-                lastDisarmTime = sendData.startTime;
-                triggerArmed = false;
-                sendData.code = 9; // code for stopwatch started
+                triggerArmed = false; // Trigger is disarmed when timer starts
+                sendData.code = TIMER_STARTED;
                 DEBUG_PRINTF("Stopwatch started, startTime: %lu\n", sendData.startTime);
                 Stopwatch::getInstance().sendDataToStopwatch();
             } else {  // Stop stopwatch
                 sendData.stopTime = millis();
                 sendData.elapsedTime = millis() - sendData.startTime;
-                sendData.code = 8; // code for stopwatch stopped
+                sendData.code = TIMER_STOPPED;
                 timerRunning = false;
                 triggerArmed = false;
                 updateTimeDisplay(sendData.elapsedTime);
@@ -97,11 +87,23 @@ void Stopwatch::handleLaserTrigger() {
             }
         }
     }
-    if (!triggerArmed && timerRunning && millis() - lastDisarmTime >= DISARM_TIME) {
-        //triggerArmed = true;
-    }
+    
+    // No automatic re-arming - wait for user input to toggle trigger
+    
     if (timerRunning) {
-        updateTimeDisplay(millis() - sendData.startTime);
+        // Update display every 10ms for smooth refresh
+        unsigned long currentTime = millis();
+        if (currentTime - lastDisplayUpdate >= 10) {
+            updateTimeDisplay(currentTime - sendData.startTime);
+            lastDisplayUpdate = currentTime;
+        }
+    } else {
+        // When timer is not running, show the last elapsed time or 0
+        unsigned long currentTime = millis();
+        if (currentTime - lastDisplayUpdate >= 100) { // Update less frequently when stopped
+            updateTimeDisplay(sendData.elapsedTime);
+            lastDisplayUpdate = currentTime;
+        }
     }
 }
 
@@ -113,53 +115,43 @@ void Stopwatch::sendDataToStopwatch()
 }
 
 void Stopwatch::updateTimeDisplay(unsigned long time, int code) {
-    uint8_t minutes = (time / 60000) % 60;
-    uint8_t seconds = (time / 1000) % 60;
-    uint8_t centiseconds = (time % 1000) / 10;
-
-    clearAndLightDigit(0, minutes / 10, code);
-    clearAndLightDigit(1, minutes % 10, code);
-    clearAndLightDigit(2, seconds / 10, code);
-    clearAndLightDigit(3, seconds % 10, code);
-    clearAndLightDigit(4, centiseconds / 10, code);
-    clearAndLightDigit(5, centiseconds % 10, code);
-
-    DEBUG_PRINTF("%02d:%02d:%02d\n", minutes, seconds, centiseconds);
-}
-
-void Stopwatch::clearAndLightDigit(int digit, int number, int code) {
-    const char *segmentPatterns[] = {
-        "abcefg", "cg", "abdfg", "bcdfg", "cdeg", 
-        "bcdef", "abcdef", "cfg", "abcdefg", "bcdefg"
-    };
-
-    for (int i = 0; i < 7; i++) {  // Clear all segments
-        int startIndex = digitSegments[digit][i];
-        for (int j = 0; j < SEGMENT_LENGTH; j++) {
-            leds[startIndex + j] = CRGB::Black;
-        }
-    }
-
-    if (number >= 0 && number <= 9) {  // Light specified segments
-        const char *segments = segmentPatterns[number];
-        while (*segments) {
-            int segmentIndex = *segments - 'a';
-            int startIndex = digitSegments[digit][segmentIndex];
-            for (int j = 0; j < SEGMENT_LENGTH; j++) {
-                leds[startIndex + j] = code == 5 ? CRGB::Green : CRGB::Red;
+    if (!matrix) return;
+    
+    // Determine color based on code
+    uint8_t r = 255, g = 255, b = 255; // Default white
+    
+    switch (code) {
+        case MSG_BLOCKED:
+            r = 0; g = 255; b = 0;  // Green
+            break;
+        case TIMER_STOPPED:
+        case TIMER_STARTED:
+            r = 255; g = 0; b = 0;  // Red
+            break;
+        default:
+            if (timerRunning) {
+                r = 255; g = 255; b = 0;  // Yellow for running timer
+            } else {
+                r = 0; g = 255; b = 0;    // Green for stopped timer
             }
-            segments++;
-        }
+            break;
     }
-    FastLED.show(); 
+    
+    // Use the built-in timer display function
+    matrix->showTime(time, r, g, b);
+    
+
 }
+
+
 
 void Stopwatch::onReceive(const uint8_t *mac, const uint8_t *incomingData, int len) {
     Stopwatch& instance = Stopwatch::getInstance();
     const DataPacket* packet = reinterpret_cast<const DataPacket*>(incomingData);
-    if (instance.timerRunning && packet->code != 10) {
+    
+    if (instance.timerRunning && packet->code != TOGGLE_TRIGGER) {
         DEBUG_PRINTLN("Receive blocked");
-        instance.sendData.code = 5;//code for message recieve blocked
+        instance.sendData.code = MSG_BLOCKED; // code for message receive blocked
         esp_now_send(instance.receiverMAC, (uint8_t *)&instance.sendData, sizeof(instance.sendData));
         instance.sendData.code = 0;
     } else {
@@ -179,17 +171,46 @@ void Stopwatch::onSent(const uint8_t *macAddr, esp_now_send_status_t status) {
 }
 
 void Stopwatch::manageTrigger() {
-    if (receivedData.code == 3) { // code for arm trigger
+    if (receivedData.code == 3) { // code for arm trigger (legacy)
         triggerArmed = true;
         DEBUG_PRINTLN("Trigger armed");
+        if (matrix) {
+            matrix->showText("ARMED", 255, 255, 0); // Yellow text
+        }
     }
-    else if (receivedData.code == 10 ){
+    else if (receivedData.code == TIMER_RESET) {
+        // Complete system reset
+        triggerArmed = false;
+        timerRunning = false;
+        sendData.elapsedTime = 0;
+        sendData.startTime = 0;
+        sendData.stopTime = 0;
+        sendData.code = TRIGGER_DISARMED;
+        lastDisplayUpdate = 0;
+        
+        if (matrix) {
+            matrix->clear();
+            updateTimeDisplay(0);
+        }
+        
+        sendDataToStopwatch();
+        DEBUG_PRINTLN("Timer reset, trigger disarmed");
+    }
+    else if (receivedData.code == TOGGLE_TRIGGER) {
         triggerArmed = !triggerArmed;
-        sendData.code = triggerArmed ? 20 : 21; //code for arm/disarm
+        sendData.code = triggerArmed ? TRIGGER_ARMED : TRIGGER_DISARMED;
         sendDataToStopwatch();
         DEBUG_PRINTF("Trigger toggled: %s\n", triggerArmed ? "armed" : "disarmed");
+        if (matrix) {
+            matrix->showText(triggerArmed ? "ARMED" : "DISARM",
+                           triggerArmed ? 255 : 255, triggerArmed ? 255 : 0, triggerArmed ? 0 : 0);
+        }
     } else {
         triggerArmed = false;
         DEBUG_PRINTLN("Trigger disarmed");
+        if (matrix) {
+            matrix->showText("DISARM", 255, 0, 0); // Red text
+        }
     }
 }
+

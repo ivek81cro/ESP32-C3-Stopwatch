@@ -2,9 +2,9 @@
 #define STOPWATCH_H
 
 #include <Arduino.h>
-#include <FastLED.h>
 #include <esp_now.h>
 #include <WiFi.h>
+#include "SimpleLEDMatrix.h"
 
 // Debugging macros
 #define DEBUG
@@ -19,24 +19,29 @@
 #endif
 
 // Constants
-#define NUM_LEDS 336
+#define MATRIX_WIDTH 64
+#define MATRIX_HEIGHT 16
 #define DATA_PIN 21
 #define LASER_PIN 4
-#define DISARM_TIME 10000
-#define SEGMENT_LENGTH 8
+#define LED_BRIGHTNESS 50
 
-// Data Structures
-/*Codes:    5 = recieve blocked, stopwatch running
-            9 = stopwatch started, start timestamp
-            8 = stopwatch stopped, stop timestamp
-            6 = trigger reset
-*/
+// Communication codes
+enum CommCodes {
+    MSG_BLOCKED = 5,     // Receive blocked, stopwatch running
+    TIMER_RESET = 6,     // Trigger reset
+    TIMER_STOPPED = 8,   // Stopwatch stopped
+    TIMER_STARTED = 9,   // Stopwatch started
+    TOGGLE_TRIGGER = 10, // Toggle trigger state
+    TRIGGER_ARMED = 20,  // Trigger armed confirmation
+    TRIGGER_DISARMED = 21 // Trigger disarmed confirmation
+};
+
 struct DataPacket {
-    uint8_t id; //Stopwatch Id
-    uint8_t code; //code for messages between MCU's
-    int stopTime; //elapsed time in milliseconds
-    int startTime; //start timestamp
-    int elapsedTime; //elapsed time in milliseconds
+    uint8_t id;
+    uint8_t code;
+    int stopTime;
+    int startTime;
+    int elapsedTime;
 };
 
 class Stopwatch {
@@ -51,17 +56,13 @@ public:
     ~Stopwatch(); // Destructor
 
 private:
-    static const int digitSegments[6][7];
-    static CRGB leds[NUM_LEDS];
+    static SimpleLEDMatrix* matrix;
     static DataPacket sendData;
     static DataPacket receivedData;
     static uint8_t receiverMAC[];
     static bool triggerArmed;
     static bool timerRunning;
-    //static unsigned long stopTime;
-    //static unsigned long startTime;
-    //static unsigned long elapsedTime;
-    static unsigned long lastDisarmTime;
+    static unsigned long lastDisplayUpdate;
 
     Stopwatch() {} // Private constructor for singleton pattern
     Stopwatch(const Stopwatch&) = delete;
@@ -71,7 +72,6 @@ private:
     void handleLaserTrigger();
     void sendDataToStopwatch();
     void updateTimeDisplay(unsigned long time, int code = 0);
-    void clearAndLightDigit(int digit, int number, int code = 0);
     static void onReceive(const uint8_t *mac, const uint8_t *incomingData, int len);
     static void onSent(const uint8_t *macAddr, esp_now_send_status_t status);
     void manageTrigger();
