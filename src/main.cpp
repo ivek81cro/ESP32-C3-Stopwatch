@@ -13,7 +13,7 @@
 
 namespace {
     constexpr uint8_t DISPLAY_PIN = 21;
-    SimpleLEDMatrix matrix(DISPLAY_PIN, 64, 16, 50);
+    SimpleLEDMatrix matrix(DISPLAY_PIN, 64, 16, 250);
     uint32_t lastMatrixRefreshMs = 0;
     uint32_t lastDisplayedTimeMs = UINT32_MAX;
     void displayTime(uint32_t ms, bool force) {
@@ -65,10 +65,12 @@ void setup() {
     hasWifiCredentials = !ssid.isEmpty();
     if (hasWifiCredentials) {
         WiFi.mode(WIFI_STA);
+        WiFi.setSleep(false); // Avoid modem-sleep latency while driving the remote LED display.
         WiFi.begin(ssid.c_str(), password.c_str());
         wifiConnectStartedMs = millis();
         Serial.printf("Connecting to saved Wi-Fi SSID: %s\n", ssid.c_str());
-    } else {
+    }
+    else {
         startProvisioningAccessPoint();
     }
     if (!SPIFFS.begin(false)) Serial.println("SPIFFS unavailable; using built-in Wi-Fi setup page");
