@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Remote Display Wi-Fi</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main>
+    <h1>Remote Display Wi-Fi</h1>
+    <p>Enter the Wi-Fi network used by the stopwatch. The display restarts after saving.</p>
+    <form method="post" action="/savewifi">
+      <label for="ssid">SSID</label>
+      <input id="ssid" name="ssid" required autocomplete="username">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password">
+      <button type="submit">Save and restart</button>
+    </form>
+  </main>
+</body>
+</html>

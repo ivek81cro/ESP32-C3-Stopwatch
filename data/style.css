@@ -1,0 +1,7 @@
+body { background:#f4f4f4; color:#222; font-family:Arial,sans-serif; margin:0; }
+main { background:#fff; border-radius:8px; box-shadow:0 2px 8px #0002; margin:2rem auto; max-width:420px; padding:1.5rem; }
+h1 { margin-top:0; text-align:center; }
+label, input, button { box-sizing:border-box; display:block; width:100%; }
+label { font-weight:bold; margin-top:1rem; }
+input, button { border:1px solid #bbb; border-radius:4px; font-size:1rem; margin-top:.35rem; padding:.7rem; }
+button { background:#007bff; border:0; color:#fff; cursor:pointer; margin-top:1.5rem; }
